@@ -1,15 +1,15 @@
 #include "dyno.h"
 
 /*
-    Restart zarizeni. Pokud je pri restartu drzen BOOTSEL, bootrom zustane
-    v USB bootloaderu (disk RP2350) - tlacitko nemusi program cist.
-    Postup: drz BOOTSEL, ./dyno.sh reset, pust az se objevi disk.
+    Restarts the device. If BOOTSEL is held during the restart, the bootrom
+    stays in the USB bootloader (RP2350 drive) - the program does not have to read the button.
+    Procedure: hold BOOTSEL, run ./dyno.sh reset, release once the drive appears.
 */
-MAIN_ENTRY(pamet)
+MAIN_ENTRY(mem)
 {
-    (void)pamet;
+    (void)mem;
     loguj("reset.c: restart");
-    delay(200);                         /* jadro 0 stihne poslat odpoved klientovi */
+    delay(200);                         /* lets core 0 send the reply to the client */
     restart();
     return 0;
 }

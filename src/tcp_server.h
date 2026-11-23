@@ -9,8 +9,8 @@
 
 bool tcp_server_start(void);
 
-/* Vrati true, pokud je prijaty blok kompletni (klient ukoncil odesilani). */
+/* Returns true when the received block is complete (the client finished sending). */
 bool tcp_server_poll(const uint8_t **data, size_t *len);
 
-/* Posle odpoved klientovi, zavre spojeni a uvolni server pro dalsi blok. */
+/* Sends the reply to the client, closes the connection and frees the server for the next block. */
 void tcp_server_finish(const char *reply, size_t reply_len);

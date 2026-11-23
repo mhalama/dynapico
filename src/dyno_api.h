@@ -1,11 +1,12 @@
 #pragma once
 /*
-    API firmwaru dostupne dynamicky nahravanemu kodu (dyno/ (programy .c)).
+    Firmware API available to dynamically uploaded code (the programs in dyno/).
 
-    Kazda funkce se deklaruje prototypem a oznaci DYNO_EXPORT(nazev).
-      - ve firmwaru DYNO_EXPORT zajisti, ze funkci neodstrani kompilator ani linker (used),
-      - v dyno/ (programy .c) je prazdne; nastroj prep podle nazvu vygeneruje
-        #define nazev ((typeof(nazev) *)0xadresa) z tabulky symbolu build/dynapico.elf.
+    Declare each function with a prototype and mark it DYNO_EXPORT(name).
+      - In the firmware, DYNO_EXPORT keeps the compiler from dropping the function (used);
+        CMake protects it from the linker (--undefined).
+      - In the uploaded programs it expands to nothing; the prep tool generates
+        #define name ((typeof(name) *)0xaddress) from the symbol table of build/dynapico.elf.
 */
 
 #include <stdint.h>
@@ -28,7 +29,7 @@ DYNO_EXPORT(loguj_n);
 void delay(int ms);
 DYNO_EXPORT(delay);
 
-/* GPIO (cislo pinu = GP cislo; palubni LED Pico 2 W je na CYW43, ne na GPIO) */
+/* GPIO (pin number = GP number; the on-board LED of the Pico 2 W is on the CYW43, not on a GPIO) */
 void gpio_vystup(int pin, int hodnota);
 DYNO_EXPORT(gpio_vystup);
 
@@ -41,14 +42,14 @@ DYNO_EXPORT(led);
 uint32_t cas_ms(void);
 DYNO_EXPORT(cas_ms);
 
-/* zapne (zap=1) / vypne pull-up na vstupnim pinu; volat pred gpio_vstup */
+/* enables (zap=1) / disables the pull-up on an input pin; call before gpio_vstup */
 void gpio_pullup(int pin, int zap);
 DYNO_EXPORT(gpio_pullup);
 
-/* restart cipu (spusti se znovu firmware, WiFi se pripoji znovu) */
+/* restart the chip (firmware starts again, WiFi reconnects) */
 void restart(void);
 DYNO_EXPORT(restart);
 
-/* restart do USB bootloaderu (BOOTSEL, disk RP2350) */
+/* reboot into the USB bootloader (BOOTSEL, RP2350 drive) */
 void bootloader(void);
 DYNO_EXPORT(bootloader);

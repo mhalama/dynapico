@@ -1,7 +1,7 @@
 /*
-    Jednoduchy TCP server nad lwIP raw API. Callbacky bezi v kontextu lwIP
-    (cyw43 background IRQ/worker) - proto jen sbiraji bajty. Spusteni kodu
-    probiha v main loop (tcp_server_poll/finish).
+    Simple TCP server on top of the lwIP raw API. The callbacks run in the lwIP
+    context (cyw43 background IRQ/worker), so they only collect bytes. The code
+    is started from the main loop (tcp_server_poll/finish).
 */
 #include <string.h>
 #include <stdio.h>
@@ -30,14 +30,14 @@ static void client_drop(bool abort_conn)
 static err_t on_recv(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t err)
 {
     (void)arg;
-    if (!p) {                       /* FIN od klienta = konec bloku */
+    if (!p) {                       /* FIN from the client = end of block */
         if (s_state == ST_RECEIVING) s_state = ST_READY;
         return ERR_OK;
     }
     if (err != ERR_OK || s_state != ST_RECEIVING) { pbuf_free(p); return ERR_OK; }
 
     if (s_len + p->tot_len > sizeof s_buf) {
-        printf("tcp: blok je prilis dlouhy\n");
+        printf("tcp: block too long\n");
         pbuf_free(p);
         client_drop(true);
         return ERR_ABRT;
@@ -51,13 +51,13 @@ static err_t on_recv(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t err)
 static void on_err(void *arg, err_t err)
 {
     (void)arg; (void)err;
-    s_client = NULL;                /* pcb uz je uvolneno lwIP */
+    s_client = NULL;                /* the pcb has already been freed by lwIP */
     if (s_state != ST_RUNNING) s_state = ST_IDLE;
 }
 
 static err_t on_poll(void *arg, struct tcp_pcb *pcb)
 {
-    (void)arg; (void)pcb;           /* vola se kazdych 2 s; s_state != RUNNING = klient mlci */
+    (void)arg; (void)pcb;           /* called every 2 s; client is silent while receiving */
     static int idle;
     if (s_state == ST_RECEIVING && ++idle >= TCP_SERVER_IDLE_S / 2) {
         idle = 0;
@@ -73,7 +73,7 @@ static err_t on_accept(void *arg, struct tcp_pcb *newpcb, err_t err)
 {
     (void)arg;
     if (err != ERR_OK || !newpcb) return ERR_VAL;
-    if (s_state != ST_IDLE) {       /* obsazeno: novy klient se odmitne */
+    if (s_state != ST_IDLE) {       /* busy: reject the new client */
         tcp_abort(newpcb);
         return ERR_ABRT;
     }
@@ -120,7 +120,7 @@ void tcp_server_finish(const char *reply, size_t reply_len)
             tcp_write(s_client, reply, (u16_t)reply_len, TCP_WRITE_FLAG_COPY);
             tcp_output(s_client);
         }
-        client_drop(false);         /* tcp_close odesle zbytek dat a FIN */
+        client_drop(false);         /* tcp_close sends the remaining data and FIN */
     }
     s_state = ST_IDLE;
     cyw43_arch_lwip_end();

@@ -10,11 +10,11 @@
 #include "hardware/watchdog.h"
 #include "dyno.h"
 
-/* Odpoved pro klienta (jen chyby/potvrzeni spousteni); vystup programu loguj* jde jen na USB konzoli */
+/* Reply for the client (errors/start acknowledgement only); loguj* output of the program goes to the USB console only */
 static char *s_reply;
 static size_t s_reply_size, s_reply_len;
 
-/* Vypis jen na USB konzoli - smi se volat z obou jader (kod bezi na jadre 1) */
+/* Output to the USB console only - safe to call from both cores (the code runs on core 1) */
 static void log_printf(const char *fmt, ...)
 {
     va_list ap;
@@ -27,7 +27,7 @@ static void log_printf(const char *fmt, ...)
     fputc('\n', stdout);
 }
 
-/* Vypis na konzoli i do odpovedi klientovi - jen z jadra 0 (dyno_run) */
+/* Output to the console and into the client reply - core 0 only (dyno_run) */
 static void reply_printf(const char *fmt, ...)
 {
     va_list ap;
@@ -46,7 +46,7 @@ static void reply_printf(const char *fmt, ...)
     }
 }
 
-/* ---- API exportovane do nahravaneho kodu ---- */
+/* ---- API exported to the uploaded code ---- */
 
 void debug(void)                     { log_printf("DEBUG"); }
 int  loguj(const char *msg)          { log_printf("%s", msg); return 0; }
@@ -83,15 +83,15 @@ void led(int zap)
     cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, zap != 0);
 }
 
-/* ---- spoustec ---- */
+/* ---- loader ---- */
 
-/* Spustitelna SRAM (RP2350 nema MPU nastavene, XN neni). Neni static: symbol hleda Makefile pres nm. */
+/* Executable SRAM (the RP2350 MPU is not configured, no XN). Not static: the Makefile looks the symbol up with nm. */
 __attribute__((aligned(16), used)) uint8_t exec_buf[DYNO_EXEC_BUF_LEN];
 
-/* Trvaly stav mezi nahranimi (do restartu) */
+/* Persistent state between uploads (until restart) */
 static uint32_t memory[DYNO_MEM_WORDS];
 
-/* Program bezi na jadre 1; jadro 0 mezitim obsluhuje WiFi/socket */
+/* The program runs on core 1; core 0 meanwhile serves WiFi/socket */
 enum { CORE1_IDLE, CORE1_RUNNING, CORE1_FINISHED };
 static volatile int s_state = CORE1_IDLE;
 static volatile int s_ret;
@@ -99,7 +99,7 @@ static uint32_t s_stack[DYNO_CORE1_STACK_WORDS] __attribute__((aligned(8)));
 
 static void core1_entry(void)
 {
-    /* Thumb: bit 0 musi byt 1 */
+    /* Thumb: bit 0 must be 1 */
     int (*f)(uint32_t *) = (int (*)(uint32_t *))((uintptr_t)exec_buf | 1u);
     s_ret = f(memory);
     __dmb();
@@ -117,12 +117,12 @@ bool dyno_core1_running(void)
     return s_state == CORE1_RUNNING;
 }
 
-/* Vola main loop: oznami, ze program na jadre 1 skoncil (vratil se z main) */
+/* Called by the main loop: reports that the program on core 1 has finished (returned from main) */
 void dyno_poll(void)
 {
     if (s_state == CORE1_FINISHED) {
         s_state = CORE1_IDLE;
-        printf("Program na jadre 1 skoncil, navratova hodnota: %d\n", s_ret);
+        printf("Program on core 1 finished, return value: %d\n", s_ret);
     }
 }
 
@@ -134,18 +134,18 @@ int dyno_run(const uint8_t *data, size_t len, char *reply, size_t reply_size)
     if (reply_size) reply[0] = 0;
 
     dyno_header_t h;
-    if (len < sizeof h) { reply_printf("CHYBA: kratky blok (%u B)", (unsigned)len); return -1; }
+    if (len < sizeof h) { reply_printf("ERROR: block too short (%u B)", (unsigned)len); return -1; }
     memcpy(&h, data, sizeof h);
 
-    if (h.magic != DYNO_MAGIC)              { reply_printf("CHYBA: spatny magic"); return -1; }
-    if (h.len != len - sizeof h)            { reply_printf("CHYBA: delka %u != %u", (unsigned)h.len, (unsigned)(len - sizeof h)); return -1; }
-    if (h.len == 0 || h.len > DYNO_EXEC_BUF_LEN) { reply_printf("CHYBA: kod se nevejde (%u B, max %u)", (unsigned)h.len, DYNO_EXEC_BUF_LEN); return -1; }
+    if (h.magic != DYNO_MAGIC)              { reply_printf("ERROR: bad magic"); return -1; }
+    if (h.len != len - sizeof h)            { reply_printf("ERROR: length %u != %u", (unsigned)h.len, (unsigned)(len - sizeof h)); return -1; }
+    if (h.len == 0 || h.len > DYNO_EXEC_BUF_LEN) { reply_printf("ERROR: code does not fit (%u B, max %u)", (unsigned)h.len, DYNO_EXEC_BUF_LEN); return -1; }
     if (h.base != (uint32_t)(uintptr_t)exec_buf || h.sig != dyno_sig()) {
-        reply_printf("CHYBA: kod je prelozen pro jiny build firmwaru - spust make");
+        reply_printf("ERROR: code was built for a different firmware build - run make");
         return -1;
     }
 
-    /* Predchozi program (i zaseknuty/spadly) se zastavi resetem jadra 1 */
+    /* The previous program (even a stuck/crashed one) is stopped by resetting core 1 */
     multicore_reset_core1();
     s_state = CORE1_IDLE;
 
@@ -155,6 +155,6 @@ int dyno_run(const uint8_t *data, size_t len, char *reply, size_t reply_size)
     s_state = CORE1_RUNNING;
     multicore_launch_core1_with_stack(core1_entry, s_stack, sizeof s_stack);
 
-    reply_printf("spusteno na jadre 1 (%u B)", (unsigned)h.len);
+    reply_printf("started on core 1 (%u B)", (unsigned)h.len);
     return 0;
 }

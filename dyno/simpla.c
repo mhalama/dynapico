@@ -1,13 +1,14 @@
 #include "dyno.h"
 
-#define BLINK_DELAY 50
+#define COUNT 10
+#define BLINK_DELAY 250
 
-MAIN_ENTRY(pamet)
+MAIN_ENTRY(mem)
 {
-    loguj_n("Pocet spusteni: ", (int)++pamet[0]);
-    for (int i = 0; i < 4; i++) {
+    loguj_n("Run count: ", (int)++mem[0]);
+    for (int i = 0; i < COUNT; i++) {
         led(1); delay(BLINK_DELAY);
         led(0); delay(BLINK_DELAY);
     }
-    return (int)pamet[0];
+    return (int)mem[0];
 }

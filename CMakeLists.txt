@@ -1,14 +1,14 @@
 cmake_minimum_required(VERSION 3.13)
 
 set(PICO_BOARD pico2_w)
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)   # compile_commands.json pro editor (include cesty SDK)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)   # compile_commands.json for the editor (SDK include paths)
 include(pico_sdk_import.cmake)   # zkopirovat z $PICO_SDK_PATH/external/
 
 project(dynapico C CXX ASM)
 set(CMAKE_C_STANDARD 11)
 pico_sdk_init()
 
-# WiFi udaje: -DWIFI_SSID=... -DWIFI_PASSWORD=... nebo stejnojmenne promenne prostredi
+# WiFi credentials: -DWIFI_SSID=... -DWIFI_PASSWORD=... or environment variables of the same name
 foreach(v WIFI_SSID WIFI_PASSWORD)
     if(NOT DEFINED ${v} AND DEFINED ENV{${v}})
         set(${v} $ENV{${v}})
@@ -23,7 +23,7 @@ target_compile_definitions(dynapico PRIVATE
     WIFI_PASSWORD="${WIFI_PASSWORD}")
 target_compile_options(dynapico PRIVATE -Wall -Wextra)
 
-# Funkce z DYNO_EXPORT(...) v dyno_api.h nesmi odstranit --gc-sections (gcc pro ARM nezna 'retain')
+# Functions listed by DYNO_EXPORT(...) in dyno_api.h must survive --gc-sections (arm gcc lacks 'retain')
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS src/dyno_api.h)
 file(STRINGS src/dyno_api.h DYNO_EXPORTS REGEX "^DYNO_EXPORT\\(")
 foreach(line ${DYNO_EXPORTS})

@@ -4,7 +4,7 @@ NM      = arm-none-eabi-nm
 OBJCOPY = arm-none-eabi-objcopy
 OBJDUMP = arm-none-eabi-objdump
 
-# Cortex-M33, Thumb, zadne -fpic: kod se linkuje na pevnou adresu exec_buf
+# Cortex-M33, Thumb, no -fpic: the code is linked at the fixed address of exec_buf
 ARCH    = -mcpu=cortex-m33 -mthumb -mfloat-abi=soft
 CFLAGS  = -Os $(ARCH) -ffreestanding -nostdlib -fno-builtin -fno-common \
           -fno-asynchronous-unwind-tables -fno-unwind-tables -Wall -Wextra
@@ -40,7 +40,7 @@ dynosend: dynosend.c dyno_build.h
 	$(CC) -c $(CFLAGS) $< -o $@
 
 %.elf: %.o linker.ld $(FIRMWARE_ELF)
-	@test -n "$(DYNO_SIZE)" || { echo "V $(FIRMWARE_ELF) nenalezen exec_buf - je firmware prelozeny?" >&2; exit 1; }
+	@test -n "$(DYNO_SIZE)" || { echo "exec_buf not found in $(FIRMWARE_ELF) - is the firmware built?" >&2; exit 1; }
 	$(LD) $(LDFLAGS) $< $(LIBGCC) -o $@
 
 %.bin: %.elf

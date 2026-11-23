@@ -1,5 +1,5 @@
 #pragma once
-/* Minimalni lwIP pro raw TCP server (NO_SYS, bez socket API) */
+/* Minimal lwIP for a raw TCP server (NO_SYS, no socket API) */
 #define NO_SYS                      1
 #define LWIP_SOCKET                 0
 #define LWIP_NETCONN                0

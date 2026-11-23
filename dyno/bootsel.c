@@ -1,10 +1,10 @@
 #include "dyno.h"
 
-/* Vzdy do USB bootloaderu, tlacitko neni potreba. */
-MAIN_ENTRY(pamet)
+/* Always enters the USB bootloader, no button needed. */
+MAIN_ENTRY(mem)
 {
-    (void)pamet;
-    loguj("bootsel.c: do bootloaderu");
+    (void)mem;
+    loguj("bootsel.c: entering bootloader");
     delay(200);
     bootloader();
     return 0;
