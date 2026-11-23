@@ -185,3 +185,7 @@ Sample programs:
 - A HardFault handler on core 1 that reports the crash.
 - Authentication or signing of the uploaded code.
 - More API: I2C/SPI/PWM, UDP, `memcpy`/`memset` exported from the firmware.
+
+## License
+
+MIT, see [LICENSE](LICENSE).
