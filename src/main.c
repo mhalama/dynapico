@@ -39,10 +39,11 @@ int main(void)
         const uint8_t *data;
         size_t len;
         if (tcp_server_poll(&data, &len)) {
-            printf("Prijato %u B, spoustim\n", (unsigned)len);
+            printf("Prijato %u B\n", (unsigned)len);
             dyno_run(data, len, reply, sizeof reply);
             tcp_server_finish(reply, strlen(reply));
         }
+        dyno_poll();
         sleep_ms(1);                /* WiFi/lwIP bezi na pozadi (threadsafe_background) */
     }
 }

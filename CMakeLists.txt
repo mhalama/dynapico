@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.13)
 
 set(PICO_BOARD pico2_w)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)   # compile_commands.json pro editor (include cesty SDK)
 include(pico_sdk_import.cmake)   # zkopirovat z $PICO_SDK_PATH/external/
 
 project(dynapico C CXX ASM)
@@ -30,7 +31,7 @@ foreach(line ${DYNO_EXPORTS})
     target_link_options(dynapico PRIVATE "LINKER:--undefined=${fn}")
 endforeach()
 
-target_link_libraries(dynapico pico_stdlib pico_cyw43_arch_lwip_threadsafe_background)
+target_link_libraries(dynapico pico_stdlib pico_multicore pico_cyw43_arch_lwip_threadsafe_background)
 
 pico_enable_stdio_usb(dynapico 1)
 pico_enable_stdio_uart(dynapico 0)

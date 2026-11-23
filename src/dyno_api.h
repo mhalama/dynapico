@@ -40,3 +40,15 @@ DYNO_EXPORT(led);
 
 uint32_t cas_ms(void);
 DYNO_EXPORT(cas_ms);
+
+/* zapne (zap=1) / vypne pull-up na vstupnim pinu; volat pred gpio_vstup */
+void gpio_pullup(int pin, int zap);
+DYNO_EXPORT(gpio_pullup);
+
+/* restart cipu (spusti se znovu firmware, WiFi se pripoji znovu) */
+void restart(void);
+DYNO_EXPORT(restart);
+
+/* restart do USB bootloaderu (BOOTSEL, disk RP2350) */
+void bootloader(void);
+DYNO_EXPORT(bootloader);

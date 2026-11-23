@@ -57,24 +57,33 @@ zařízení navíc odmítne kód přeložený proti jinému buildu).
 | Adresa funkce | `nm` adresa | `nm` bit 0 (Thumb) **nevypisuje**; `prep` ho doplní, `exec_buf` se volá s `\|1` |
 | Cache | – | pro SRAM žádná; stačí `dsb; isb` |
 | TCP | sockety v FreeRTOS tasku | lwIP raw API, callbacky v kontextu lwIP |
-| Kde běží kód | v tasku serveru | v hlavní smyčce, ne v lwIP kontextu |
+| Kde běží kód | v tasku serveru | **na jádře 1**; jádro 0 dál obsluhuje WiFi/socket |
 | Ochrana exportů před `--gc-sections` | atribut `retain` | gcc 13.2 pro ARM `retain` **nezná**; CMake čte `DYNO_EXPORT(...)` z `dyno_api.h` a předá linkeru `--undefined=` |
 | Linker | `main == DYNO_BASE` | `(main & ~1) == DYNO_BASE` |
 | První nahrání | `idf.py flash` | BOOTSEL + UF2, dál po WiFi |
 
-## 5. Protokol
+## 5. Protokol a běh programu
 
 Klient pošle `[hlavička 16 B | kód]` a ukončí odesílání (FIN). Hlavička
 (little endian): `magic "DYNO"`, `len`, `base` (adresa `exec_buf`),
 `sig` (`exec_buf ^ dyno_run`). Firmware zkontroluje magic, délku, `base`
-a `sig` (shoda s buildem firmwaru), kód spustí a pošle zpět text
-(výstup `loguj*` a návratovou hodnotu), pak spojení zavře.
+a `sig` (shoda s buildem firmwaru).
+
+Poté jádro 0 **zastaví předchozí program** (`multicore_reset_core1()`),
+zkopíruje kód do `exec_buf` a spustí ho na jádře 1
+(`multicore_launch_core1_with_stack`, zásobník 8 kB). Na výsledek se
+nečeká: klient dostane jen potvrzení „spusteno na jadre 1" nebo chybu a spojení
+se zavře. Program tak může být nekonečná smyčka. Výstup `loguj*` jde na USB
+konzoli; skončí-li program návratem z `main`, hlavní smyčka vypíše návratovou hodnotu.
+Spadne-li program (HardFault) nebo se zasekne, jádro 0 a socket server běží dál
+a další nahrání ho vymění.
 
 ## 6. Omezení a rizika
 
 - Žádná autentizace ani šifrování: kdo je v síti, spustí na zařízení libovolný kód.
-- Žádná izolace, kód běží v hlavní smyčce. Nekonečná smyčka zablokuje příjem
-  dalšího kódu (WiFi dál běží z IRQ) → nutný reset.
+- Izolace jen na úrovni jader: zápis mimo vlastní paměť (lwIP, periferie) může
+  poškodit i jádro 0. Reset jádra 1 neuvolní zámky (mutex u `printf`), které
+  program držel.
 - Žádná libc (`-nostdlib`). Kód, ze kterého překladač vygeneruje `memset`/`memcpy`
   (např. `char b[300] = {0}`), skončí chybou linkeru. Překročení `exec_buf`
   (16 kB) také.
@@ -84,6 +93,7 @@ a `sig` (shoda s buildem firmwaru), kód spustí a pošle zpět text
 
 ## 7. Možné další kroky
 
-- Spouštění na jádře 1 + watchdog / možnost kód přerušit.
+- MPU: jádro 1 vidí jen `exec_buf`, `memory` a zásobník.
+- HardFault handler na jádře 1, který nahlásí pád.
 - Autentizace (sdílený klíč / podpis) nahrávaného kódu.
 - Další API: I2C/SPI/PWM, UDP, `memcpy`/`memset` exportované z firmwaru.
