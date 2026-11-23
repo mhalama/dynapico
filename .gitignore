@@ -1,0 +1,14 @@
+# tajemstvi (WiFi)
+.env
+# build
+build/
+dyno/prep
+dyno/dynosend
+dyno/dyno_ptr.h
+dyno/dyno_build.h
+dyno/*.o
+dyno/*.elf
+dyno/*.bin
+dyno/*.dump
+# editor
+.vscode/
